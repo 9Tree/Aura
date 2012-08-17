@@ -1,21 +1,29 @@
+//1,2,3 - Diga la outra vez!
 var $, $$, $$$;
+//the STUFF
 (function(){
     "use strict"
     
-    var slice = [].slice;
+    //declarations
+    $ = selector;
+    $$ = function(o){return new $object(o);}
+    $$$ = function(c){return new $class(c);}
     
-    //  helper stuff we'll need
-    function isFunction(f){
+    //vars we will be using
+    var isFunction, isObject, isElement, clone, reverse, slice = [].slice, isArray;
+    
+    //helper functions
+    $$.isArray = isArray = Array.isArray;
+    $$.clone = isFunction = function(f){
         return typeof f === "function";
     };
-    function isObject(o){
+    $$.isObject = isObject = function(o){
         return typeof o === "object";
     };
-    function isDOMObject(o){
+    $.isElement = isElement = function(o){
         return o instanceof HTMLElement;
     };
-    var isArray = Array.isArray;
-    function clone(obj) {
+    $$.clone = clone = function(obj) {
         if (!obj) return null;
         var n = {};
         for (var i in obj) {
@@ -23,22 +31,7 @@ var $, $$, $$$;
         }
         return n;
     };
-    function inherit(c, proto){
-        function n() {};
-        var ownProto = c.prototype;
-        n.prototype = proto;
-        c.prototype = new n();
-        c.prototype.constructor = c;
-        if(ownProto) $$$(c).addPrototype(ownProto);
-        return c;
-    };
-    function classify(obj, construct){
-        if(isFunction(obj)) return c;
-        var n = construct ? function(){construct.apply(this,arguments);} : function(){};
-        n.prototype = c;
-        return n;
-    };
-    function reverse(arr){
+    $$.reverse = reverse = function(arr){
         var n = [];
         for(var i = 0; i<arr.length; i++){
             n[arr.length-i-1] = arr[i];
@@ -46,7 +39,8 @@ var $, $$, $$$;
         return n;
     };
     
-    // class handler
+    
+    // class handler ($$$)
     function $class(c){
         if(!c) this.c = function(){};
         else if(isObject(c)) this.c = $$(c).getClass();
@@ -90,12 +84,10 @@ var $, $$, $$$;
         get:function(){return this.c;}
     }
     
-    $$$ = function(c){return new $class(c);}
     
-    
-    //object handler - TODO - implement methods
+    //object handler ($$) - TODO - implement methods
     function $object(o){
-        if(!isObject(o) || isDOMObject(o)) throw "$$$ - argument is not a valid javascript object";
+        if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
         this.o = o;
     }
     $object.prototype = {
@@ -107,9 +99,7 @@ var $, $$, $$$;
         }
     }
     
-    $$ = function(o){return new $object(o);}
-    
-    //single DOM object class
+    //single DOM object class ($)
     function $dom(e){
         this.i=0;
         if(e && !e.length){
@@ -118,20 +108,11 @@ var $, $$, $$$;
         } else this.length=0;
     }
     var domP = {
-        find : function(){
+        find : function(toSelect){
             //TODO - review
-            if (!this.e)
+            if (!this[this.i])
                 return undefined;
-            var elems = [];
-            var tmpElems;
-            for (var i = 0; i < this.length; i++) {
-                tmpElems = ($(sel, this[i]));
-                    
-                for (var j = 0; j < tmpElems.length; j++) {
-                    elems.push(tmpElems[j]);
-                }
-            }
-            return $(unique(elems));
+            return $(toSelect, this[i]);
         },
         get : function(index){
             return this[index?index:this.i];
@@ -141,7 +122,7 @@ var $, $$, $$$;
 
 
     
-    //multiple DOM object - Voodoo stuff
+    //multiple DOM object ($) - Voodoo stuff
     function $doms(objs){
         this.length = 0;
         this.i=0;
@@ -166,9 +147,8 @@ var $, $$, $$$;
     $doms.prototype.get = domP.get;
     
     
-    //main selector
-    $ = function (toSelect, what){
-        
+    //main selector - very Voodoo!
+    function selector(toSelect, what){
         //cases - TODO: make it faster
         if (!toSelect) {
             return new $dom();
@@ -204,10 +184,10 @@ var $, $$, $$$;
 		toSelect=toSelect.trim();
         if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
             if (what == document){
-                return new $dom(what.getElementById(selector.replace("#", "")));
+                return new $dom(what.getElementById(toSelect.replace("#", "")));
             } else {
         		try{
-        			return new $(what.querySelector(selector));
+        			return new $(what.querySelector(toSelect));
         		} catch(e){
         			return new $dom();
         		}
@@ -221,12 +201,10 @@ var $, $$, $$$;
             
         } else {    //css query selector all
     		try{
-    			return new $(reverse(slice.call(what.querySelectorAll(selector))));
+    			return new $(reverse(slice.call(what.querySelectorAll(toSelect))));
     		} catch(e){
     			return new $dom();
     		}
         }
-
-
     }
 })()
