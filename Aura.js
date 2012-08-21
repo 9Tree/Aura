@@ -6,11 +6,17 @@ var $, $$, $$$;
     
     //declarations
     $ = selector;
-    $$ = function(o){return new $object(o);}
-    $$$ = function(c){return new $class(c);}
+    $$ = function(o){
+        //return itself or a new instance
+        return o && o instanceof $object ? o : new $object(o);
+    }
+    $$$ = function(c){
+        //return itself or a new instance
+        return c && c instanceof $class ? c : new $class(c);
+    }
     
     //vars we will be using
-    var isFunction, isObject, isElement, clone, reverse, slice = [].slice, isArray;
+    var isFunction, isObject, isElement, clone, reverse, slice = [].slice, isArray, proxy;
     
     //helper functions
     $$.isArray = isArray = Array.isArray;
@@ -21,8 +27,9 @@ var $, $$, $$$;
         return typeof o === "object";
     };
     $.isElement = isElement = function(o){
-        return o instanceof HTMLElement;
+        return !!(obj && obj.nodeType == 1);
     };
+    //clone an object recursively - Note: currently does not avoid infinite loop
     $$.clone = clone = function(obj) {
         if (!obj) return null;
         var n = {};
@@ -31,6 +38,7 @@ var $, $$, $$$;
         }
         return n;
     };
+    //reverse an array
     $$.reverse = reverse = function(arr){
         var n = [];
         for(var i = 0; i<arr.length; i++){
@@ -38,6 +46,12 @@ var $, $$, $$$;
         }
         return n;
     };
+    //proxy a method (avoid when possible!)
+	$$.proxy = proxy = function(f, c, args){
+       	return args ? 
+            function(){return f.apply(c, args);} : //use provided arguments
+            function(){return f.apply(c, arguments)} ;	//use scope function call arguments
+	}
     
     
     // class handler ($$$)
@@ -55,6 +69,7 @@ var $, $$, $$$;
         addPrototype:function(proto){
             var cur = this.c.prototype;
             for(var el in proto) cur[el]=proto[el];
+            cur.constructor=this.c;
         },
         getPrototype:function(p){return this.c.prototype;},
         addProperty:function(n,m){
@@ -77,9 +92,10 @@ var $, $$, $$$;
             function n() {};
             n.prototype = thisProto;
             func.prototype = new n();
-            if(func) $$$(func).addPrototype(proto);
             func.prototype.constructor = func;
-            return new $class(func);
+            var c = new $class(func);
+            if(proto) c.addPrototype(proto);
+            return c;
         },
         get:function(){return this.c;}
     }
@@ -88,26 +104,73 @@ var $, $$, $$$;
     //object handler ($$) - TODO - implement methods
     function $object(o){
         if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
-        this.o = o;
+        this.length = 0;
+        if(isArray(o)) {
+            for(var i=0;i<o.length;i++) {
+                if(!o[i].__aura) o[i].__aura={};
+                this[this.length++]=o[i];
+            }
+        } else {
+            if(!o.__aura) o.__aura={};
+            this[0]=o;
+        }
     }
     $object.prototype = {
-        bind:function(){
-            
+        bind:function(ev, f){
+            var objs, obj;
+            ev = $.isArray(ev) ? ev : [ev]; //set multiple events at once
+            for(var i=0;i<this.length;i++){
+                objs = this[i].__aura.events;
+                objs = objs || {};
+    			for(var j=0; j<ev.length; j++){
+                    obj = objs[ev[j]];
+    				obj = obj || [];
+    				obj.push(f);
+    			}
+            }
         },
-        unbind:function(){
-            
+        unbind:function(ev, f){
+            var objs, obj;
+            ev = ($.isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
+            for(var i=0;i<this.length;i++){
+                objs = this[i].__aura.events;
+                //clear all events
+                if(!ev || !objs) {
+                    objs = {};
+                    continue;
+                }
+                //clear matches
+    			for(var j=0; j<ev.length; j++){
+                    obj = objs[ev[j]];
+                    //clear all callbacks
+                    if(!f || !obj) {
+                        obj = [];
+                        continue;
+                    }
+                    //remove function f
+    				for(var k=0;k<obj.length;k++) if(obj[k]==j) delete obj[k];
+    			}
+            }
         }
     }
     
     //single DOM object class ($)
     function $dom(e){
-        this.i=0;
-        if(e && !e.length){
-            this[0] = e;
-            this.length=1;
-        } else this.length=0;
+        this.length = 0;
+        if(isArray(e)) {
+            for(var i=0;i<e.length;i++) this[this.length++]=e[i]; 
+        } else this[0]=e;
     }
-    var domP = {
+    $dom.prototype = {
+        attr : function(a, v){
+            if(!v){
+                return this[0].getAttribute(a);
+            } else {
+                for(var i=0;i<this.length;i++) this[i].setAttribute(a, v);
+            }
+        },
+        data : function(a,v){return this.attr('data-'+a,v);},    //still 3x faster than dataset
+        
         find : function(toSelect){
             //TODO - review
             if (!this[this.i])
@@ -115,49 +178,24 @@ var $, $$, $$$;
             return $(toSelect, this[i]);
         },
         get : function(index){
-            return this[index?index:this.i];
+            return this[index?index:0];
         }
     }
-    $dom.prototype = domP;
 
-
-    
-    //multiple DOM object ($) - Voodoo stuff
-    function $doms(objs){
-        this.length = 0;
-        this.i=0;
-        for (var i = 0; i < objs.length; i++)
-            this[this.length++] = objs[i];
-    }
-    //proxy all $dom methods for multiple elements
-    var f = function(p){
-        return function(){
-            for(var j = 0; j<this.length; j++){
-                this.i = j;
-                p.apply(this, arguments);
-            }
-            this.i = 0;
-            return this;
-        }
-    }
-    for(var n in domP) {
-        $doms.prototype[n] = f(domP[n]);
-    }
-    //except get
-    $doms.prototype.get = domP.get;
     
     
     //main selector - very Voodoo!
     function selector(toSelect, what){
-        //cases - TODO: make it faster
+        //cases - TODO: make it logic and faster
+        var noWhat = what == undefined;
         if (!toSelect) {
             return new $dom();
-        } else if ((toSelect instanceof $dom || toSelect instanceof $doms) && what == undefined) {
+        } else if (toSelect instanceof $dom && noWhat) {
             return toSelect;
-        } else if (isArray(toSelect) && toSelect.length != undefined) { //Passing in an array or object
-            return toSelect.length>1 ? new $doms(toSelect) : new $dom(toSelect);
-        } else if (isObject(toSelect) && isObject(what)) { //var tmp=$("span");  $("p").find(tmp);
-            if (toSelect.length == undefined) {
+        } else if (isArray(toSelect)) { //Passing in an array
+            return new $dom(toSelect);
+        } else if (isObject(toSelect) && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
+            if (isElement(toSelect)) {
                 if (toSelect.parentNode == what)
                     return new $dom(toSelect);
             } else {
@@ -166,17 +204,14 @@ var $, $$, $$$;
                     if (toSelect[i].parentNode == what)
                         a[a.length] = toSelect[i];
                 }
-                return new $doms(a); 
+                return new $dom(a); 
             }
-            return new $dom();
-        } else if ($.isObject(toSelect) && what == undefined) { //Single object
+        } else if ($.isObject(toSelect) && noWhat) { //Single object
             return new $dom(toSelect);
-        } else if (what !== undefined) {
-            if ((what instanceof $dom || what instanceof $doms)) {
-                return what.find(toSelect);
-            }
-        } else {
+        } else if (noWhat) {
             what = document;
+        } else if (what instanceof $dom) {
+            return what.find(toSelect);
         }
         
         
@@ -187,24 +222,28 @@ var $, $$, $$$;
                 return new $dom(what.getElementById(toSelect.replace("#", "")));
             } else {
         		try{
-        			return new $(what.querySelector(toSelect));
+        			return new $dom(what.querySelector(toSelect));
         		} catch(e){
-        			return new $dom();
+        		    return new $dom();
         		}
             }
                 
         } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
             var tmp = document.createElement("div");
             tmp.innerHTML = toSelect.trim();
-            return $(reverse(slice.call(tmp.childNodes)));
+            return new $dom(reverse(slice.call(tmp.childNodes)));
+            
+            
+        } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
+            return new $dom(reverse(slice.call(document.getElementsByClassName(c.replace(".", "")))));
             
             
         } else {    //css query selector all
+            var e = [];
     		try{
-    			return new $(reverse(slice.call(what.querySelectorAll(toSelect))));
-    		} catch(e){
-    			return new $dom();
-    		}
+                e = what.querySelectorAll(toSelect);
+    		} catch(e){}
+            return new $dom(reverse(slice.call(e)));
         }
     }
 })()
