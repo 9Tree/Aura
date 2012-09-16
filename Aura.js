@@ -1,5 +1,6 @@
-//1,2,3 - Diga la outra vez!
+//DOM Wrapper, Object Wrapper, Class Wrapper
 var $, $$, $$$;
+
 //the STUFF
 (function(){
     "use strict"
@@ -16,18 +17,29 @@ var $, $$, $$$;
     }
     
     //vars we will be using
-    var isFunction, isObject, isElement, clone, reverse, slice = [].slice, isArray, proxy;
+    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, isArray, proxy;
     
-    //helper functions
-    $$.isArray = isArray = Array.isArray;
-    $$.clone = isFunction = function(f){
+	
+	//
+    //helper functions (+ compatibility replacements)
+	//
+	
+	//javascript helpers
+    $$.isArray = isArray = Array.isArray ? Array.isArray : function(){function(obj) {return obj && obj instanceof Array};
+	
+    $$.isFunction = isFunction = function(f){
         return typeof f === "function";
     };
     $$.isObject = isObject = function(o){
         return typeof o === "object";
     };
-    $.isElement = isElement = function(o){
-        return !!(obj && obj.nodeType == 1);
+    $$.isNumeric = isNumeric = function(n){
+        //return !isNaN(parseFloat(n)) && isFinite(n);
+		return (n - 0) == n && n.length > 0;
+    };
+    $$.numOnly = numOnly = window.numOnly ? window.numOnly : function(n){
+        if (!isNumeric(n) && n && n.replace) n = n.replace(/[^0-9.-]/, "");	//force string correction
+        return parseFloat(n);
     };
     //clone an object recursively - Note: currently does not avoid infinite loop
     $$.clone = clone = function(obj) {
@@ -46,13 +58,34 @@ var $, $$, $$$;
         }
         return n;
     };
-    //proxy a method (avoid when possible!)
+    //proxy a method
 	$$.proxy = proxy = function(f, c, args){
        	return args ? 
             function(){return f.apply(c, args);} : //use provided arguments
             function(){return f.apply(c, arguments)} ;	//use scope function call arguments
 	}
+	
+	
+	//DOM related helpers
+    $.isElement = isElement = function(o){
+        return !!(obj && obj.nodeType == 1);
+    };
+	$.ready = function(f){
+        if (document.readyState === "complete" || document.readyState === "loaded")
+            f();
+        document.addEventListener("DOMContentLoaded", f, false);
+        return this;
+	}
     
+	
+	
+	
+	
+	//
+	//the classes
+	//
+	
+	
     
     // class handler ($$$)
     function $class(c){
@@ -101,7 +134,7 @@ var $, $$, $$$;
     }
     
     
-    //object handler ($$) - TODO - implement methods
+    //object handler ($$)
     function $object(o){
         if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
         this.length = 0;
@@ -116,7 +149,7 @@ var $, $$, $$$;
         }
     }
     $object.prototype = {
-        bind:function(ev, f){
+        bind:function(ev, f){	//bind events to object
             var objs, obj;
             ev = $.isArray(ev) ? ev : [ev]; //set multiple events at once
             for(var i=0;i<this.length;i++){
@@ -128,8 +161,9 @@ var $, $$, $$$;
     				obj.push(f);
     			}
             }
+			return this;
         },
-        unbind:function(ev, f){
+        unbind:function(ev, f){	//unbind events in object
             var objs, obj;
             ev = ($.isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
             for(var i=0;i<this.length;i++){
@@ -151,7 +185,23 @@ var $, $$, $$$;
     				for(var k=0;k<obj.length;k++) if(obj[k]==j) delete obj[k];
     			}
             }
-        }
+			return this;
+        },
+		delegate:function(){	//delegate events to another object
+			//TODO
+			return this;
+		},
+		stringify:function(){	//stringify object
+			//remove aura stuff to stringify
+			var tmp = this[0].__aura;
+			delete this[0].__aura;
+			var str = JSON.stringify(this[0]);
+			this[0].__aura = tmp;
+			return tmp;
+		},
+		querystring:function(){	//convert to http GET/POST querystring
+			//TODO
+		}
     }
     
     //single DOM object class ($)
@@ -167,13 +217,14 @@ var $, $$, $$$;
                 return this[0].getAttribute(a);
             } else {
                 for(var i=0;i<this.length;i++) this[i].setAttribute(a, v);
+				return this;
             }
         },
         data : function(a,v){return this.attr('data-'+a,v);},    //still 3x faster than dataset
         
         find : function(toSelect){
             //TODO - review
-            if (!this[this.i])
+            if (!this[0])
                 return undefined;
             return $(toSelect, this[i]);
         },
