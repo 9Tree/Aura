@@ -9,15 +9,15 @@ var $, $$, $$$;
     $ = selector;
     $$ = function(o){
         //return itself or a new instance
-        return o && o instanceof $object ? o : new $object(o);
+        return o instanceof $object ? o : new $object(o);
     }
     $$$ = function(c){
         //return itself or a new instance
-        return c && c instanceof $class ? c : new $class(c);
+        return c instanceof $class ? c : new $class(c);
     }
     
     //vars we will be using
-    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, isArray, proxy;
+    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, canLoop, isArray, proxy;
     
 	
 	//
@@ -25,7 +25,9 @@ var $, $$, $$$;
 	//
 	
 	//javascript helpers
-    $$.isArray = isArray = Array.isArray ? Array.isArray : function(){function(obj) {return obj && obj instanceof Array};
+    $$.isArray = isArray = Array.isArray ? Array.isArray : function(obj) { return Object.prototype.toString.call(vArg) === "[object Array]"; }; //Array
+    
+    $$.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
 	
     $$.isFunction = isFunction = function(f){
         return typeof f === "function";
@@ -68,11 +70,10 @@ var $, $$, $$$;
 	
 	//DOM related helpers
     $.isElement = isElement = function(o){
-        return !!(obj && obj.nodeType == 1);
+        return !!(o && o.nodeType == 1);
     };
 	$.ready = function(f){
-        if (document.readyState === "complete" || document.readyState === "loaded")
-            f();
+        if (document.readyState === "complete" || document.readyState === "loaded") asap(f);
         document.addEventListener("DOMContentLoaded", f, false);
         return this;
 	}
@@ -138,10 +139,13 @@ var $, $$, $$$;
     function $object(o){
         if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
         this.length = 0;
-        if(isArray(o)) {
+        if(!o) return;
+        if(canLoop(o)) {
             for(var i=0;i<o.length;i++) {
-                if(!o[i].__aura) o[i].__aura={};
-                this[this.length++]=o[i];
+                if(o[i]){
+                    if(!o[i].__aura) o[i].__aura={};
+                    this[this.length++]=o[i];
+                }
             }
         } else {
             if(!o.__aura) o.__aura={};
@@ -151,7 +155,7 @@ var $, $$, $$$;
     $object.prototype = {
         bind:function(ev, f){	//bind events to object
             var objs, obj;
-            ev = $.isArray(ev) ? ev : [ev]; //set multiple events at once
+            ev = Array ? ev : [ev]; //set multiple events at once
             for(var i=0;i<this.length;i++){
                 objs = this[i].__aura.events;
                 objs = objs || {};
@@ -165,7 +169,7 @@ var $, $$, $$$;
         },
         unbind:function(ev, f){	//unbind events in object
             var objs, obj;
-            ev = ($.isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
+            ev = (isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
             for(var i=0;i<this.length;i++){
                 objs = this[i].__aura.events;
                 //clear all events
@@ -192,6 +196,7 @@ var $, $$, $$$;
 			return this;
 		},
 		stringify:function(){	//stringify object
+            if(!this[0]) return null;
 			//remove aura stuff to stringify
 			var tmp = this[0].__aura;
 			delete this[0].__aura;
@@ -207,16 +212,16 @@ var $, $$, $$$;
     //single DOM object class ($)
     function $dom(e){
         this.length = 0;
-        if(isArray(e)) {
+        if(e && !e.nodeType && canLoop(e)) {
             for(var i=0;i<e.length;i++) this[this.length++]=e[i]; 
         } else this[0]=e;
     }
     $dom.prototype = {
         attr : function(a, v){
             if(!v){
-                return this[0].getAttribute(a);
+                return this[0][a];
             } else {
-                for(var i=0;i<this.length;i++) this[i].setAttribute(a, v);
+                for(var i=0;i<this.length;i++) this[i][a] = v;
 				return this;
             }
         },
@@ -226,10 +231,47 @@ var $, $$, $$$;
             //TODO - review
             if (!this[0])
                 return undefined;
-            return $(toSelect, this[i]);
+            return $(toSelect, this[0]);
         },
         get : function(index){
             return this[index?index:0];
+        },
+        val : function(v){
+            if(v!==undefined){  //setter
+                
+                for(var i=0;i<this.length;i++){
+                    //special select case
+                    if(this[i].tagName=="SELECT"){
+                        var els = this[i].find("option");   //get options
+                        v = isArray(v) ? v : [v];   //
+                        //set selected
+                        for(var j=0;j<els.length;j++){
+                            els[j].selected = v.indexOf(els[j].value)!=-1;
+                        }
+                    } else this[i].value = v;
+                }
+                return this;
+                
+            } else if(this[0]){ //getter
+                
+                if(this[0].tagName=="SELECT"){
+                    //special select case
+                    //TODO improve to ignore disabled optgroups
+                    return this.find(this[0].multiple ? 'option[selected]:not([disabled])' : 'option[selected]').val();
+                } else if (this.length>1){
+                    //array case
+                    var values = [];
+                    for(var i=0;i<this.length;i++){
+                        //special select case
+                        values.push(this[i].value);
+                    }
+                    return values;
+                } else {
+                    //single value
+                    return this[0].value;
+                }
+                
+            } else return null;
         }
     }
 
@@ -238,31 +280,32 @@ var $, $$, $$$;
     //main selector - very Voodoo!
     function selector(toSelect, what){
         //cases - TODO: make it logic and faster
-        var noWhat = what == undefined;
         if (!toSelect) {
             return new $dom();
-        } else if (toSelect instanceof $dom && noWhat) {
-            return toSelect;
-        } else if (isArray(toSelect)) { //Passing in an array
-            return new $dom(toSelect);
-        } else if (isObject(toSelect) && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
-            if (isElement(toSelect)) {
-                if (toSelect.parentNode == what)
-                    return new $dom(toSelect);
+        } else if (!what){
+            if(toSelect instanceof $dom){
+                return toSelect;
+            } else if (typeof toSelect == 'object') { //Single object or array
+                return new $dom(toSelect);
             } else {
-                var a = [];
-                for (var i = 0; i < toSelect.length; i++){
-                    if (toSelect[i].parentNode == what)
-                        a[a.length] = toSelect[i];
-                }
-                return new $dom(a); 
+                 what = document;
             }
-        } else if ($.isObject(toSelect) && noWhat) { //Single object
-            return new $dom(toSelect);
-        } else if (noWhat) {
-            what = document;
-        } else if (what instanceof $dom) {
-            return what.find(toSelect);
+        } else {
+            if (typeof toSelect == 'object' && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
+                if (isElement(toSelect)) {
+                    if (toSelect.parentNode == what)
+                        return new $dom(toSelect);
+                } else {
+                    var a = [];
+                    for (var i = 0; i < toSelect.length; i++){
+                        if (toSelect[i].parentNode == what)
+                            a[a.length] = toSelect[i];
+                    }
+                    return new $dom(a); 
+                }
+            } else if (what instanceof $dom) {
+                return what.find(toSelect);
+            }
         }
         
         
@@ -282,11 +325,11 @@ var $, $$, $$$;
         } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
             var tmp = document.createElement("div");
             tmp.innerHTML = toSelect.trim();
-            return new $dom(reverse(slice.call(tmp.childNodes)));
+            return new $dom(slice.call(tmp.childNodes));
             
             
         } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
-            return new $dom(reverse(slice.call(document.getElementsByClassName(c.replace(".", "")))));
+            return new $dom(slice.call(document.getElementsByClassName(c.replace(".", ""))));
             
             
         } else {    //css query selector all
@@ -294,7 +337,8 @@ var $, $$, $$$;
     		try{
                 e = what.querySelectorAll(toSelect);
     		} catch(e){}
-            return new $dom(reverse(slice.call(e)));
+            return new $dom(slice.call(e));
         }
     }
+
 })()
