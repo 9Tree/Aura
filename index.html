@@ -11,14 +11,22 @@
         <div id="test"></div>
         
         <select id="test-select" multiple>
+        
             <option value="option1" selected>option1</option>
             <option value="option2" disabled selected>option2</option>
             <optgroup label="test" disabled>
-                <option value="option3" selected>option1</option>
+                <option value="option3" selected>option3</option>
+                <optgroup label="test3">
+                    <option value="option4" selected>option4</option>
+                </optgroup>
             </optgroup>
             <optgroup label="test2">
-                <option value="option4" selected>option1</option>
+                <option value="option5" selected>option5</option>
+                <optgroup label="test4">
+                    <option value="option6" selected>option6</option>
+                </optgroup>
             </optgroup>
+            
         </select>
     </body>
 </html>

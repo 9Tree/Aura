@@ -1,5 +1,8 @@
 //DOM Wrapper, Object Wrapper, Class Wrapper
 var $, $$, $$$;
+// $() - DOM Wrapper;       $.func - helper functions;
+// $$() - Object Wrapper;   $$.obj - objects;
+// $$() - Class Wrapper;    $$$.klass - object classes;
 
 //the STUFF
 (function(){
@@ -18,33 +21,35 @@ var $, $$, $$$;
     
     //vars we will be using
     var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, canLoop, isArray, proxy;
-    
 	
 	//
     //helper functions (+ compatibility replacements)
 	//
 	
 	//javascript helpers
-    $$.isArray = isArray = Array.isArray ? Array.isArray : function(obj) { return Object.prototype.toString.call(vArg) === "[object Array]"; }; //Array
+    $.isArray = isArray = Array.isArray ? Array.isArray : function(obj) { return Object.prototype.toString.call(vArg) === "[object Array]"; }; //Array
     
-    $$.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
-	
-    $$.isFunction = isFunction = function(f){
+    //check for a loopable object
+    $.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
+    
+    $.isFunction = isFunction = function(f){
         return typeof f === "function";
     };
-    $$.isObject = isObject = function(o){
+    
+    $.isObject = isObject = function(o){
         return typeof o === "object";
     };
-    $$.isNumeric = isNumeric = function(n){
-        //return !isNaN(parseFloat(n)) && isFinite(n);
+    //check number
+    $.isNumeric = isNumeric = function(n){
 		return (n - 0) == n && n.length > 0;
     };
-    $$.numOnly = numOnly = window.numOnly ? window.numOnly : function(n){
+    //numOnly
+    $.numOnly = numOnly = window.numOnly ? window.numOnly : function(n){
         if (!isNumeric(n) && n && n.replace) n = n.replace(/[^0-9.-]/, "");	//force string correction
         return parseFloat(n);
     };
     //clone an object recursively - Note: currently does not avoid infinite loop
-    $$.clone = clone = function(obj) {
+    $.clone = clone = function(obj) {
         if (!obj) return null;
         var n = {};
         for (var i in obj) {
@@ -53,7 +58,7 @@ var $, $$, $$$;
         return n;
     };
     //reverse an array
-    $$.reverse = reverse = function(arr){
+    $.reverse = reverse = function(arr){
         var n = [];
         for(var i = 0; i<arr.length; i++){
             n[arr.length-i-1] = arr[i];
@@ -61,32 +66,47 @@ var $, $$, $$$;
         return n;
     };
     //proxy a method
-	$$.proxy = proxy = function(f, c, args){
+	$.proxy = proxy = function(f, c, args){
        	return args ? 
             function(){return f.apply(c, args);} : //use provided arguments
             function(){return f.apply(c, arguments)} ;	//use scope function call arguments
 	}
-	
-	
-	//DOM related helpers
+	//check if object is a DOM element
     $.isElement = isElement = function(o){
         return !!(o && o.nodeType == 1);
     };
+    //run stuff when DOM is ready
 	$.ready = function(f){
         if (document.readyState === "complete" || document.readyState === "loaded") asap(f);
         document.addEventListener("DOMContentLoaded", f, false);
         return this;
 	}
     
-	
-	
-	
-	
+    
+    
+    
+    
 	//
-	//the classes
+	//the main classes
 	//
-	
-	
+    
+    
+    //common class methods
+    function getter( i ) {
+        return i == null ? slice.call(this) : ( i < 0 ? this[ this.length + i ] : this[ i ] );
+    }
+    function mapper(f){
+        for(var i=0;i<this.length;i++){
+            var tmp = f.call(this[i], i, this[i]);
+            if(tmp) this[i] = tmp;
+        }
+        return this;
+    }
+    function adder(e){
+        
+    }
+    
+
     
     // class handler ($$$)
     function $class(c){
@@ -131,7 +151,10 @@ var $, $$, $$$;
             if(proto) c.addPrototype(proto);
             return c;
         },
-        get:function(){return this.c;}
+        
+        //common methods
+        get:getter,
+        map:mapper
     }
     
     
@@ -206,7 +229,10 @@ var $, $$, $$$;
 		},
 		querystring:function(){	//convert to http GET/POST querystring
 			//TODO
-		}
+		},
+        //common methods
+        get:getter,
+        map:mapper
     }
     
     //single DOM object class ($)
@@ -225,6 +251,10 @@ var $, $$, $$$;
 				return this;
             }
         },
+        removeAttr : function(a){
+            for(var i=0;i<this.length;i++) this[i].removeAttribute(a);
+            return this;
+        },
         data : function(a,v){return this.attr('data-'+a,v);},    //still 3x faster than dataset
         
         find : function(toSelect){
@@ -232,9 +262,6 @@ var $, $$, $$$;
             if (!this[0])
                 return undefined;
             return $(toSelect, this[0]);
-        },
-        get : function(index){
-            return this[index?index:0];
         },
         val : function(v){
             if(v!==undefined){  //setter
@@ -257,7 +284,7 @@ var $, $$, $$$;
                 if(this[0].tagName=="SELECT"){
                     //special select case
                     //TODO improve to ignore disabled optgroups
-                    return this.find(this[0].multiple ? 'option[selected]:not([disabled])' : 'option[selected]').val();
+                    return this.find('option[selected]:not([disabled])').val();
                 } else if (this.length>1){
                     //array case
                     var values = [];
@@ -272,7 +299,29 @@ var $, $$, $$$;
                 }
                 
             } else return null;
+        },
+        //TODO s
+        addClass:function(){},
+        removeClass:function(){},
+        togleClass:function(){},
+        css: function( name, value ) {
+        		return jQuery.access( this, function( elem, name, value ) {
+        			return value !== undefined ?
+        				jQuery.style( elem, name, value ) :
+        				jQuery.css( elem, name );
+        		}, name, value, arguments.length > 1 );
+        	},
+        show: function() {this.css('display', '')},
+        hide: function() {},
+        toggle: function() {
+            for(var i=0;i<this.length;i++){
+                if(this[i].style.display)
+            }
         }
+        
+        //common methods
+        get:getter,
+        map:mapper
     }
 
     
