@@ -82,6 +82,12 @@ var $, $$, $$$;
         return this;
 	}
     
+    //internal functions and caches
+    var classCache
+    function classRE(name) {
+        return classCache[name] ? classCache[name] : (classCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'));
+    }
+    
     
     
     
@@ -110,51 +116,67 @@ var $, $$, $$$;
     
     // class handler ($$$)
     function $class(c){
+        this.props = {};
         if(!c) this.c = function(){};
         else if(isObject(c)) this.c = $$(c).getClass();
         else if(!isFunction(c)) throw "$$$ - argument is not a class";
         else this.c=c;
     }
     $class.prototype = {
+        props:null,
         setPrototype:function(p){
             this.c.prototype=p;
             this.c.prototype.constructor=this.c;
+            return this;
         },
         addPrototype:function(proto){
             var cur = this.c.prototype;
             for(var el in proto) cur[el]=proto[el];
             cur.constructor=this.c;
+            return this;
         },
         getPrototype:function(p){return this.c.prototype;},
-        addProperty:function(n,m){
-            this.c.prototype[n]=m;
+        
+        //ECMA 5 properties support
+        property:function(n, p){  
+            this.props[n] = p;
+            return this;
         },
-        extend:function(obj){
-            var func, proto;
-            //classify p
-            if(!isFunction(obj)) {
-                var construct = this.c;
-                func = function(){construct.apply(this,arguments);};
-                proto = obj;
-            } else {
-                func = obj;
-                proto = obj.prototype;
-            }
-            proto.constructor = null;
-            //inherit
+        properties:function(p){
+            for(var el in p) this.props[el] = p[el];
+            return this;
+        },
+        //ECMA5 create instance
+        new:function(){
+            var o = Object.create(this.c.prototype, this.props);
+            this.c.prototype.constructor.apply(o, arguments);
+            return o;
+        },
+        
+        inherit:function(c){
             var thisProto = this.c.prototype;
             function n() {};
-            n.prototype = thisProto;
-            func.prototype = new n();
-            func.prototype.constructor = func;
-            var c = new $class(func);
-            if(proto) c.addPrototype(proto);
-            return c;
+            n.prototype = c.prototype;
+            this.setPrototype(new n());
+            this.addPrototype(thisProto);
+            return this;
+        },
+        extend:function(obj){
+            var func;
+            //classify obj
+            if(!isFunction(obj)) {
+                var construct = this.c;
+                func = $$$(function(){construct.apply(this,arguments);});
+                func.setPrototype(obj);
+            } else {
+                func = $$$(obj);
+            }
+            //inherit
+            return func.inherit(this.c);
         },
         
         //common methods
-        get:getter,
-        map:mapper
+        get:function(){return this.c;}
     }
     
     
@@ -230,6 +252,14 @@ var $, $$, $$$;
 		querystring:function(){	//convert to http GET/POST querystring
 			//TODO
 		},
+        property:function(n, p){  //ECMA 5 properties
+            for(var i=0;i<this.length;i++) Object.defineProperty(this[i], n, p);
+            return this;
+        },
+        properties:function(p){
+            for(var i=0;i<this.length;i++) Object.defineProperties(this[i], p);
+            return this;
+        },
         //common methods
         get:getter,
         map:mapper
@@ -301,23 +331,55 @@ var $, $$, $$$;
             } else return null;
         },
         //TODO s
-        addClass:function(){},
-        removeClass:function(){},
-        togleClass:function(){},
+        addClass:function(c){
+            for(var i=0;i<this.length;i++) {
+                var cName = this[i].className;
+                if(!classRE(c).test(this[i].className)) {
+                    this[i].className = cName ? cName+' '+c.trim() : c.trim();
+                }
+                    
+            } 
+        },
+        hasClass:function(c){
+            return this.length>0 ? classRE(c).test(this[0].className) : false;
+        },
+        removeClass:function(c){
+            for(var i=0;i<this.length;i++) this[i].className = this[i].className.replace(classRE(c), " ").trim();
+            return this;
+        },
+        toggleClass:function(cName, newClass){
+            for (var i = 0; i < this.length; i++) {
+                this[i].className.replace(classRE(cname), " ");
+                this[i].className = (this[i].className + newClass).trim();
+            }
+            return this;
+        },
         css: function( name, value ) {
-        		return jQuery.access( this, function( elem, name, value ) {
-        			return value !== undefined ?
-        				jQuery.style( elem, name, value ) :
-        				jQuery.css( elem, name );
-        		}, name, value, arguments.length > 1 );
-        	},
+            //setter
+            if(value || typeof name == 'object') return this.style(name, value);
+            //getter (computedStyle property)
+            if(name) return window.getComputedStyle(this[0])[name];
+            //getter (full computedStyle)
+            return window.getComputedStyle(this[0]);
+        },
+        style: function(name, value){
+            if(value) name = {name:value};
+            
+            if(typeof name == 'object'){    //setter
+                for(var i=0; i<this.length; i++)
+                    for(el in name) this[i].style[el]=name[el];
+                return this;
+            } else {    //getter
+                return this[0].style[name];
+            }
+        },
         show: function() {this.css('display', '')},
         hide: function() {},
         toggle: function() {
             for(var i=0;i<this.length;i++){
-                if(this[i].style.display)
+                //if(this[i].style.display)
             }
-        }
+        },
         
         //common methods
         get:getter,
