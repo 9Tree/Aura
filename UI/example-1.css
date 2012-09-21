@@ -1,0 +1,9 @@
+/*test stuff*/
+body>header, body>footer{
+    background:#3B72EB;
+}
+.chat-icon-theirs>div, .chat-icon-mine>div{
+    width: 47px;
+    background-size: 47px;
+    height: 47px;
+}
