@@ -108,7 +108,14 @@ html, body, .fill
 }
 .vertical-content, .single-content{
     display: -webkit-box;
+    display: -moz-box;
+    display: -ms-box;
+    display: box;
     -webkit-box-orient:vertical;
+    -moz-box-orient:vertical;
+    -ms-box-orient:vertical;
+    -o-box-orient:vertical;
+    box-orient:vertical;
 }
 .single-content>*:not(.selected){
     display:none;
@@ -116,6 +123,10 @@ html, body, .fill
 .horizontal-content{
     display: -webkit-box;
     -webkit-box-orient:horizontal;
+    -moz-box-orient:horizontal;
+    -ms-box-orient:horizontal;
+    -o-box-orient:horizontal;
+    box-orient:horizontal;
 }
 .vertical-content>*, .auto-height{
     height:auto;
@@ -128,16 +139,33 @@ html, body, .fill
     height:auto;
     width:auto;
 }
-.scrollable{
+.single-content>.selected.scrollable{
+    height:0;
     overflow: auto;
     -webkit-overflow-scrolling:touch;
+    -moz-overflow-scrolling:touch;
+    -ms-overflow-scrolling:touch;
+    -o-overflow-scrolling:touch;
+    overflow-scrolling:touch;
 }
 .scrollable>*{
 	-webkit-backface-visibility: hidden;
+    -moz-backface-visibility: hidden;
+    -ms-backface-visibility: hidden;
+    -o-backface-visibility: hidden;
+    backface-visibility: hidden;
 	-webkit-perspective: 2000;
+    -moz-perspective: 2000;
+    -ms-perspective: 2000;
+    -o-perspective: 2000;
+    perspective: 2000;
 }
 .vertical-content>.fill-flex, .horizontal-content>.fill-flex, .single-content>.selected{
     -webkit-box-flex:1;
+    -moz-box-flex:1;
+    -ms-box-flex:1;
+    -o-box-flex:1;
+    box-flex:1;
 }
 .fill-width, .fill{
     width:100%;
