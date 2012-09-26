@@ -1,5 +1,5 @@
-TestSuite.addTest("$$$ inheratance", function(){
-    //$$$ inheratance tests
+TestSuite.addTest("$$$ inheritance", function(){
+    //$$$ inheritance tests
     //class a
     function a(test){
         this.check = "a";
