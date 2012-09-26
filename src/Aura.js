@@ -220,27 +220,13 @@
         },
         
         //ECMA 5 properties support
-        property:function(n, p){  
-            if(p){
-                Object.defineProperty(this.c.prototype, n, p);
-                return this;
-            } else {
-                return Object.getOwnPropertyDescriptor(this.c.prototype, n);
-            }
+        property:function(n, p){ 
+            var ret = $$(this.c.prototype).property(n, p);
+            return p ? this : ret;
         },
         properties:function(p){
-            if(p){  //add properties
-                var cur = this.c.prototype;
-                for(var el in p) Object.defineProperty(this.c.prototype, el, p[el]);
-                return this;
-            } else {
-                var props = Object.getOwnPropertyNames(this.c.prototype);
-                var result = {};
-                for(var i =0;i<props.length;i++){
-                    result[props[i]] = Object.getOwnPropertyDescriptor(this.c.prototype, props[i]);
-                }
-                return result;
-            }
+            var ret = $$(this.c.prototype).properties(p);
+            return p ? this : ret;
         },
         setProperties:function(p){   //replace properties
           Object.defineProperties(this.c.prototype, p); 
@@ -283,27 +269,29 @@
     function $object(o){
         if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
         this.length = 0;
-        if(!o) return;
-        if(canLoop(o)) {
-            for(var i=0;i<o.length;i++) {
-                if(o[i]){
-                    if(!o[i].__aura) o[i].__aura={};
-                    this[this.length++]=o[i];
+        if(o) {
+            if(canLoop(o)) {
+                for(var i=0;i<o.length;i++) {   //order is important here
+                    if(o[i]){
+                        if(!o[i].__aura) o[i].__aura={};
+                        this[this.length++]=o[i];
+                    }
                 }
+            } else {
+                if(!o.__aura) o.__aura={};
+                this[0]=o;
+                this.length=1;
             }
-        } else {
-            if(!o.__aura) o.__aura={};
-            this[0]=o;
         }
     }
     $object.prototype = {
         bind:function(ev, f){	//bind events to object
             var objs, obj;
             ev = Array ? ev : [ev]; //set multiple events at once
-            for(var i=0;i<this.length;i++){
+            for(var i=this.length-1;i>=0;i--){
                 objs = this[i].__aura.events;
                 objs = objs || {};
-    			for(var j=0; j<ev.length; j++){
+    			for(var j=this.length-1;j>=0;j--){
                     obj = objs[ev[j]];
     				obj = obj || [];
     				obj.push(f);
@@ -314,7 +302,7 @@
         unbind:function(ev, f){	//unbind events in object
             var objs, obj;
             ev = (isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
-            for(var i=0;i<this.length;i++){
+            for(var i=this.length-1;i>=0;i--){
                 objs = this[i].__aura.events;
                 //clear all events
                 if(!ev || !objs) {
@@ -322,7 +310,7 @@
                     continue;
                 }
                 //clear matches
-    			for(var j=0; j<ev.length; j++){
+    			for(var j=this.length-1;j>=0;j--){
                     obj = objs[ev[j]];
                     //clear all callbacks
                     if(!f || !obj) {
@@ -334,6 +322,14 @@
     			}
             }
 			return this;
+        },
+        seal:function(){
+            for(var i=this.length-1;i>=0;i--) 
+                Object.seal(this[i]);
+        },
+        freeze:function(){
+            for(var i=this.length-1;i>=0;i--) 
+                Object.freeze(this[i]);
         },
 		delegate:function(){	//delegate events to another object
 			//TODO
@@ -352,12 +348,28 @@
 			//TODO
 		},
         property:function(n, p){  //ECMA 5 properties
-            for(var i=0;i<this.length;i++) Object.defineProperty(this[i], n, p);
-            return this;
+            if(p){
+                for(var i=this.length-1;i>=0;i--) 
+                    Object.defineProperty(this[i], n, p);
+                return this;
+            } else {
+                return Object.getOwnPropertyDescriptor(this[0], n);
+            }
         },
         properties:function(p){
-            for(var i=0;i<this.length;i++) Object.defineProperties(this[i], p);
-            return this;
+            if(p){  //add properties
+                for(var i=this.length-1;i>=0;i--) 
+                    for(var el in p) 
+                        Object.defineProperty(this[i], el, p[el]);
+                return this;
+            } else {
+                var props = Object.getOwnPropertyNames(this[0]);
+                var result = {};
+                for(var i=props.length-1;i>=0;i--){   //order is irrelevant for the return
+                    result[props[i]] = Object.getOwnPropertyDescriptor(this[0], props[i]);
+                }
+                return result;
+            }
         },
         //common methods
         get:getter,
@@ -367,9 +379,14 @@
     //single DOM object class ($)
     function $dom(e){
         this.length = 0;
-        if(e && !e.nodeType && canLoop(e)) {
-            for(var i=0;i<e.length;i++) this[this.length++]=e[i]; 
-        } else this[0]=e;
+        if(e){
+            if(!e.nodeType && canLoop(e)) {
+                for(var i=0;i<e.length;i++) this[this.length++]=e[i]; 
+            } else {
+                this[0]=e;
+                this.length=1;
+            }  
+        }
     }
     $dom.prototype = {
         attr : function(a, v){
