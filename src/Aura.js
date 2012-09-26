@@ -1,5 +1,3 @@
-//DOM Wrapper, Object Wrapper, Class Wrapper
-var $, $$, $$$;
 // $() - DOM Wrapper;       $.func - helper functions;
 // $$() - Object Wrapper;   $$.obj - objects;
 // $$() - Class Wrapper;    $$$.klass - object classes;
@@ -8,26 +6,102 @@ var $, $$, $$$;
 (function(){
     "use strict"
     
-    //declarations
-    $ = selector;
-    $$ = function(o){
+    //window properties setup
+    Object.defineProperties(window, {
+        $:{value:$},
+        $$:{value:$$},
+        $$$:{value:$$$}
+    });
+    
+    //get an id for cache, every Element
+    Object.defineProperty(Element.prototype, "_auraId", {
+        value:null,
+        writable:true
+    })
+    
+    //main DOM selector - very Voodoo!
+    function $(toSelect, what){
+        //cases - TODO: make it logic and faster
+        if (!toSelect) {
+            return new $dom();
+        } else if (!what){
+            if(toSelect instanceof $dom){
+                return toSelect;
+            } else if (typeof toSelect == 'object') { //Single object or array
+                return new $dom(toSelect);
+            } else {
+                 what = document;
+            }
+        } else {
+            if (typeof toSelect == 'object' && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
+                if (isElement(toSelect)) {
+                    if (toSelect.parentNode == what)
+                        return new $dom(toSelect);
+                } else {
+                    var a = [];
+                    for (var i = 0; i < toSelect.length; i++){
+                        if (toSelect[i].parentNode == what)
+                            a[a.length] = toSelect[i];
+                    }
+                    return new $dom(a); 
+                }
+            } else if (what instanceof $dom) {
+                return what.find(toSelect);
+            }
+        }
+        
+        
+        //ok, selector it is
+		toSelect=toSelect.trim();
+        if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
+            if (what == document){
+                return new $dom(what.getElementById(toSelect.replace("#", "")));
+            } else {
+        		try{
+        			return new $dom(what.querySelector(toSelect));
+        		} catch(e){
+        		    return new $dom();
+        		}
+            }
+                
+        } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
+            var tmp = document.createElement("div");
+            tmp.innerHTML = toSelect.trim();
+            return new $dom(slice.call(tmp.childNodes));
+            
+            
+        } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
+            return new $dom(slice.call(document.getElementsByClassName(c.replace(".", ""))));
+            
+            
+        } else {    //css query selector all
+            var e = [];
+    		try{
+                e = what.querySelectorAll(toSelect);
+    		} catch(e){}
+            return new $dom(slice.call(e));
+        }
+    }
+    //Object wrapper
+    function $$(o){
         //return itself or a new instance
         return o instanceof $object ? o : new $object(o);
     }
-    $$$ = function(c){
+    //Class wrapper
+    function $$$(c){
         //return itself or a new instance
         return c instanceof $class ? c : new $class(c);
     }
     
     //vars we will be using
-    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, canLoop, isArray, proxy;
+    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, canLoop, isArray, proxy, asap;
 	
 	//
     //helper functions (+ compatibility replacements)
 	//
 	
 	//javascript helpers
-    $.isArray = isArray = Array.isArray ? Array.isArray : function(obj) { return Object.prototype.toString.call(vArg) === "[object Array]"; }; //Array
+    $.isArray = isArray = Array.isArray; //Array
     
     //check for a loopable object
     $.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
@@ -81,6 +155,10 @@ var $, $$, $$$;
         document.addEventListener("DOMContentLoaded", f, false);
         return this;
 	}
+    $.asap = asap = function(f){
+        //TODO make this proper and set via postMessage
+        setTimeout(function(){f();},0);
+    }
     
     //internal functions and caches
     var classCache
@@ -116,63 +194,84 @@ var $, $$, $$$;
     
     // class handler ($$$)
     function $class(c){
-        this.props = {};
-        if(!c) this.c = function(){};
-        else if(isObject(c)) this.c = $$(c).getClass();
+        if(!c) this.c = {};
+        else if(isObject(c)) this.c = c;
         else if(!isFunction(c)) throw "$$$ - argument is not a class";
-        else this.c=c;
+        else {
+            this.hasOwnConstructor = true;
+            this.c=c;
+        }
     }
     $class.prototype = {
-        props:null,
-        setPrototype:function(p){
+        hasOwnConstructor:false,
+        proto:function(p){
+            if(p){  //add stuff to proto
+                var cur = this.c.prototype;
+                for(var el in p) if(el!="constructor") cur[el]=p[el];   //add all except constructor
+                return this;
+            } else {
+                return this.c.prototype;
+            }
+        },
+        setProto:function(p){   //replace proto
             this.c.prototype=p;
-            this.c.prototype.constructor=this.c;
+            if(this.hasOwnConstructor) this.c.prototype.constructor=this.c;
             return this;
         },
-        addPrototype:function(proto){
-            var cur = this.c.prototype;
-            for(var el in proto) cur[el]=proto[el];
-            cur.constructor=this.c;
-            return this;
-        },
-        getPrototype:function(p){return this.c.prototype;},
         
         //ECMA 5 properties support
         property:function(n, p){  
-            this.props[n] = p;
-            return this;
+            if(p){
+                Object.defineProperty(this.c.prototype, n, p);
+                return this;
+            } else {
+                return Object.getOwnPropertyDescriptor(this.c.prototype, n);
+            }
         },
         properties:function(p){
-            for(var el in p) this.props[el] = p[el];
-            return this;
+            if(p){  //add properties
+                var cur = this.c.prototype;
+                for(var el in p) Object.defineProperty(this.c.prototype, el, p[el]);
+                return this;
+            } else {
+                var props = Object.getOwnPropertyNames(this.c.prototype);
+                var result = {};
+                for(var i =0;i<props.length;i++){
+                    result[props[i]] = Object.getOwnPropertyDescriptor(this.c.prototype, props[i]);
+                }
+                return result;
+            }
+        },
+        setProperties:function(p){   //replace properties
+          Object.defineProperties(this.c.prototype, p); 
+          return this; 
         },
         //ECMA5 create instance
         new:function(){
-            var o = Object.create(this.c.prototype, this.props);
-            this.c.prototype.constructor.apply(o, arguments);
+            var o = Object.create(this.c.prototype, this.properties());
+            if(this.hasOwnConstructor) this.c.prototype.constructor.apply(o, arguments);
             return o;
         },
         
         inherit:function(c){
-            var thisProto = this.c.prototype;
-            function n() {};
-            n.prototype = c.prototype;
-            this.setPrototype(new n());
-            this.addPrototype(thisProto);
+            c = $$$(c);
+            var thisProto = this.properties();
+            this.properties(c.properties());
+            this.properties(thisProto);
             return this;
         },
         extend:function(obj){
             var func;
             //classify obj
-            if(!isFunction(obj)) {
+            if(!isFunction(obj) && this.hasOwnConstructor) {
                 var construct = this.c;
                 func = $$$(function(){construct.apply(this,arguments);});
-                func.setPrototype(obj);
+                func.setProto(obj);
             } else {
                 func = $$$(obj);
             }
             //inherit
-            return func.inherit(this.c);
+            return func.inherit(this);
         },
         
         //common methods
@@ -385,71 +484,6 @@ var $, $$, $$$;
         get:getter,
         map:mapper
     }
-
-    
-    
-    //main selector - very Voodoo!
-    function selector(toSelect, what){
-        //cases - TODO: make it logic and faster
-        if (!toSelect) {
-            return new $dom();
-        } else if (!what){
-            if(toSelect instanceof $dom){
-                return toSelect;
-            } else if (typeof toSelect == 'object') { //Single object or array
-                return new $dom(toSelect);
-            } else {
-                 what = document;
-            }
-        } else {
-            if (typeof toSelect == 'object' && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
-                if (isElement(toSelect)) {
-                    if (toSelect.parentNode == what)
-                        return new $dom(toSelect);
-                } else {
-                    var a = [];
-                    for (var i = 0; i < toSelect.length; i++){
-                        if (toSelect[i].parentNode == what)
-                            a[a.length] = toSelect[i];
-                    }
-                    return new $dom(a); 
-                }
-            } else if (what instanceof $dom) {
-                return what.find(toSelect);
-            }
-        }
-        
-        
-        //ok, selector it is
-		toSelect=toSelect.trim();
-        if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
-            if (what == document){
-                return new $dom(what.getElementById(toSelect.replace("#", "")));
-            } else {
-        		try{
-        			return new $dom(what.querySelector(toSelect));
-        		} catch(e){
-        		    return new $dom();
-        		}
-            }
-                
-        } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
-            var tmp = document.createElement("div");
-            tmp.innerHTML = toSelect.trim();
-            return new $dom(slice.call(tmp.childNodes));
-            
-            
-        } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
-            return new $dom(slice.call(document.getElementsByClassName(c.replace(".", ""))));
-            
-            
-        } else {    //css query selector all
-            var e = [];
-    		try{
-                e = what.querySelectorAll(toSelect);
-    		} catch(e){}
-            return new $dom(slice.call(e));
-        }
-    }
-
 })()
+
+
