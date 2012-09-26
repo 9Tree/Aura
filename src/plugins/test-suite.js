@@ -1,5 +1,6 @@
 //test suite
-$$$.TestCase = function(name, f, timeout){
+//no dependencies with Aura itself, so we can test it properly
+TestCase = function(name, f, timeout){
     this.errors=[];
     this.failed=false;
     this.f = f;
@@ -35,14 +36,14 @@ $$$.TestCase = function(name, f, timeout){
         }
     }
 }
-$$.TestSuite = {
+TestSuite = {
     tests:{},
     addTest:function(name, f){
-        this.tests[name]=new $$$.TestCase(name, f);
+        this.tests[name]=new TestCase(name, f);
     },
     addAsyncTest:function(name, f, timeout){
         timeout = timeout || 2500;
-        this.tests[name]=new $$$.TestCase(name, f, timeout);
+        this.tests[name]=new TestCase(name, f, timeout);
     },
     runAll:function(){
         console.log("Running all tests:");

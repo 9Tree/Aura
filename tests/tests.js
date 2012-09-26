@@ -1,4 +1,4 @@
-$$.TestSuite.addTest("$$$ inheratance", function(){
+TestSuite.addTest("$$$ inheratance", function(){
     //$$$ inheratance tests
     //class a
     function a(test){
@@ -55,7 +55,7 @@ $$.TestSuite.addTest("$$$ inheratance", function(){
 });
 
 
-$$.TestSuite.addAsyncTest("$.ready", function(){
+TestSuite.addAsyncTest("$.ready", function(){
     var that = this;
 
     $.ready(function(){
@@ -65,7 +65,7 @@ $$.TestSuite.addAsyncTest("$.ready", function(){
 
 
 
-$$.TestSuite.runAll();
+TestSuite.runAll();
 
 // var __color = {red:0,green:0,blue:0,alpha:1};
 // function createGetMethod(prop){
