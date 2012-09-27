@@ -20,68 +20,45 @@
     })
     
     //main DOM selector - very Voodoo!
-    function $(toSelect, what){
+    function $(toSelect, scope){
+        scope = scope || window;
         //cases - TODO: make it logic and faster
         if (!toSelect) {
             return new $dom();
-        } else if (!what){
-            if(toSelect instanceof $dom){
-                return toSelect;
-            } else if (typeof toSelect == 'object') { //Single object or array
-                return new $dom(toSelect);
-            } else {
-                 what = document;
-            }
-        } else {
-            if (typeof toSelect == 'object' && isElement(what)) { //var tmp=$("span");  $("p").find(tmp);
-                if (isElement(toSelect)) {
-                    if (toSelect.parentNode == what)
-                        return new $dom(toSelect);
-                } else {
-                    var a = [];
-                    for (var i = 0; i < toSelect.length; i++){
-                        if (toSelect[i].parentNode == what)
-                            a[a.length] = toSelect[i];
-                    }
-                    return new $dom(a); 
-                }
-            } else if (what instanceof $dom) {
-                return what.find(toSelect);
-            }
+        } else if(toSelect instanceof $dom){
+            return toSelect;
+        } else if (typeof toSelect == 'object') { //Single object or array
+            return new $dom(toSelect);
         }
         
-        
-        //ok, selector it is
+        //ok, string it is
 		toSelect=toSelect.trim();
         if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
-            if (what == document){
-                return new $dom(what.getElementById(toSelect.replace("#", "")));
-            } else {
-        		try{
-        			return new $dom(what.querySelector(toSelect));
-        		} catch(e){
-        		    return new $dom();
-        		}
-            }
-                
+            
+            return new $dom(scope.document.getElementById(toSelect.replace("#", "")));
+              
         } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
+            
             var tmp = document.createElement("div");
             tmp.innerHTML = toSelect.trim();
-            return new $dom(slice.call(tmp.childNodes));
+            return new $dom(tmp.children);
             
             
         } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
-            return new $dom(slice.call(document.getElementsByClassName(c.replace(".", ""))));
             
+            return new $dom(document.getElementsByClassName(c.replace(".", "")));
             
         } else {    //css query selector all
+            
             var e = [];
     		try{
                 e = what.querySelectorAll(toSelect);
     		} catch(e){}
             return new $dom(slice.call(e));
+            
         }
     }
+
     //Object wrapper
     function $$(o){
         //return itself or a new instance
@@ -94,33 +71,25 @@
     }
     
     //vars we will be using
-    var isFunction, isObject, isNumeric, numOnly, isElement, clone, reverse, slice = [].slice, canLoop, isArray, proxy, asap;
+    var isNumeric, isElement, clone, reverse, slice = [].slice, canLoop, proxy, asap;
 	
 	//
     //helper functions (+ compatibility replacements)
 	//
-	
-	//javascript helpers
-    $.isArray = isArray = Array.isArray; //Array
     
     //check for a loopable object
     $.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
     
-    $.isFunction = isFunction = function(f){
+    $.isFunction = function(f){
         return typeof f === "function";
     };
     
-    $.isObject = isObject = function(o){
+    $.isObject = function(o){
         return typeof o === "object";
     };
     //check number
     $.isNumeric = isNumeric = function(n){
 		return (n - 0) == n && n.length > 0;
-    };
-    //numOnly
-    $.numOnly = numOnly = window.numOnly ? window.numOnly : function(n){
-        if (!isNumeric(n) && n && n.replace) n = n.replace(/[^0-9.-]/, "");	//force string correction
-        return parseFloat(n);
     };
     //clone an object recursively - Note: currently does not avoid infinite loop
     $.clone = clone = function(obj) {
@@ -134,8 +103,8 @@
     //reverse an array
     $.reverse = reverse = function(arr){
         var n = [];
-        for(var i = 0; i<arr.length; i++){
-            n[arr.length-i-1] = arr[i];
+        for(var i = arr.length-1; i>=0; i--){
+            n[i+1-arr.length] = arr[i];
         }
         return n;
     };
@@ -150,10 +119,10 @@
         return !!(o && o.nodeType == 1);
     };
     //run stuff when DOM is ready
-	$.ready = function(f){
-        if (document.readyState === "complete" || document.readyState === "loaded") asap(f);
-        document.addEventListener("DOMContentLoaded", f, false);
-        return this;
+	$.ready = function(f, scope){
+        scope = scope || window;
+        if (scope.document.readyState === "complete" || scope.document.readyState === "loaded") asap(f);
+        scope.document.addEventListener("DOMContentLoaded", f, false);
 	}
     $.asap = asap = function(f){
         //TODO make this proper and set via postMessage
@@ -161,7 +130,7 @@
     }
     
     //internal functions and caches
-    var classCache
+    var classCache;
     function classRE(name) {
         return classCache[name] ? classCache[name] : (classCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'));
     }
@@ -195,8 +164,8 @@
     // class handler ($$$)
     function $class(c){
         if(!c) this.c = {};
-        else if(isObject(c)) this.c = c;
-        else if(!isFunction(c)) throw "$$$ - argument is not a class";
+        else if(typeof c == 'object') this.c = c;
+        else if(!(typeof c == 'function')) throw "$$$ - argument is not a class";
         else {
             this.hasOwnConstructor = true;
             this.c=c;
@@ -267,7 +236,7 @@
     
     //object handler ($$)
     function $object(o){
-        if(!isObject(o) || isElement(o)) throw "$$$ - argument is not a valid javascript object";
+        if(!(typeof o == 'object') || isElement(o)) throw "$$$ - argument is not a valid javascript object";
         this.length = 0;
         if(o) {
             if(canLoop(o)) {
@@ -301,7 +270,7 @@
         },
         unbind:function(ev, f){	//unbind events in object
             var objs, obj;
-            ev = (isArray(ev) || !ev) ? ev : [ev]; //set multiple events at once
+            ev = (canLoo(ev) || !ev) ? ev : [ev]; //set multiple events at once
             for(var i=this.length-1;i>=0;i--){
                 objs = this[i].__aura.events;
                 //clear all events
@@ -377,11 +346,12 @@
     }
     
     //single DOM object class ($)
-    function $dom(e){
+    function $dom(e, scope){
+        this.scope = scope;
         this.length = 0;
         if(e){
             if(!e.nodeType && canLoop(e)) {
-                for(var i=0;i<e.length;i++) this[this.length++]=e[i]; 
+                for(var i=0;i<e.length;i++) this[this.length++]=e[i]; //order matters
             } else {
                 this[0]=e;
                 this.length=1;
@@ -393,12 +363,12 @@
             if(!v){
                 return this[0][a];
             } else {
-                for(var i=0;i<this.length;i++) this[i][a] = v;
+                for(var i=this.length-1;i>=0;i--) this[i].setAttribute(a, v);
 				return this;
             }
         },
         removeAttr : function(a){
-            for(var i=0;i<this.length;i++) this[i].removeAttribute(a);
+            for(var i=this.length-1;i>=0;i--) this[i].removeAttribute(a);
             return this;
         },
         data : function(a,v){return this.attr('data-'+a,v);},    //still 3x faster than dataset
@@ -407,18 +377,49 @@
             //TODO - review
             if (!this[0])
                 return undefined;
-            return $(toSelect, this[0]);
+                
+            if (typeof what == 'object') { //var tmp=$("span");  $("p").find(tmp);
+                if (toSelect.length == undefined) {
+                    if (toSelect.parentNode == what)
+                        return new $dom(toSelect);
+                    else return new $dom();
+                } else {
+                    var a = [];
+                    for (var i = 0; i < toSelect.length; i++){
+                        if (toSelect[i].parentNode == what)
+                            a[a.length] = toSelect[i];
+                    }
+                    return new $dom(a);
+                }
+            }
+            
+            //ok, selector it is
+    		toSelect=toSelect.trim();
+            if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
+                
+        		try{
+        			return new $dom(this[0].querySelector(toSelect));
+        		} catch(e){}
+                
+            } else {    //css query selector all
+                
+        		try{
+                    return new $dom(this[0].querySelectorAll(toSelect));
+        		} catch(e){}
+                
+            }
+            return new $dom();
         },
         val : function(v){
             if(v!==undefined){  //setter
                 
-                for(var i=0;i<this.length;i++){
+                for(var i=this.length-1;i>=0;i--){
                     //special select case
                     if(this[i].tagName=="SELECT"){
                         var els = this[i].find("option");   //get options
-                        v = isArray(v) ? v : [v];   //
+                        v = canLoop(v) ? v : [v];   //
                         //set selected
-                        for(var j=0;j<els.length;j++){
+                        for(var i=els.length-1;i>=0;i--){
                             els[j].selected = v.indexOf(els[j].value)!=-1;
                         }
                     } else this[i].value = v;
@@ -448,7 +449,7 @@
         },
         //TODO s
         addClass:function(c){
-            for(var i=0;i<this.length;i++) {
+            for(var i=this.length-1;i>=0;i--) {
                 var cName = this[i].className;
                 if(!classRE(c).test(this[i].className)) {
                     this[i].className = cName ? cName+' '+c.trim() : c.trim();
@@ -460,11 +461,11 @@
             return this.length>0 ? classRE(c).test(this[0].className) : false;
         },
         removeClass:function(c){
-            for(var i=0;i<this.length;i++) this[i].className = this[i].className.replace(classRE(c), " ").trim();
+            for(var i=this.length-1;i>=0;i--) this[i].className = this[i].className.replace(classRE(c), " ").trim();
             return this;
         },
         toggleClass:function(cName, newClass){
-            for (var i = 0; i < this.length; i++) {
+            for (var i=this.length-1;i>=0;i--) {
                 this[i].className.replace(classRE(cname), " ");
                 this[i].className = (this[i].className + newClass).trim();
             }
@@ -474,15 +475,15 @@
             //setter
             if(value || typeof name == 'object') return this.style(name, value);
             //getter (computedStyle property)
-            if(name) return window.getComputedStyle(this[0])[name];
+            if(name) return this.scope.getComputedStyle(this[0])[name];
             //getter (full computedStyle)
-            return window.getComputedStyle(this[0]);
+            return this.scope.getComputedStyle(this[0]);
         },
         style: function(name, value){
             if(value) name = {name:value};
             
             if(typeof name == 'object'){    //setter
-                for(var i=0; i<this.length; i++)
+                for(var i=this.length-1;i>=0;i--)
                     for(el in name) this[i].style[el]=name[el];
                 return this;
             } else {    //getter
@@ -492,7 +493,7 @@
         show: function() {this.css('display', '')},
         hide: function() {},
         toggle: function() {
-            for(var i=0;i<this.length;i++){
+            for(var i=this.length-1;i>=0;i--){
                 //if(this[i].style.display)
             }
         },
