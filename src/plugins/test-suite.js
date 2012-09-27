@@ -1,5 +1,5 @@
 //test suite
-//no dependencies with Aura itself, so we can test it properly
+//Pure javascript, no dependencies with Aura itself, so we can test it properly
 TestCase = function(name, f, timeout){
     this.failed=false;
     this.f = f;
