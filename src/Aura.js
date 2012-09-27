@@ -246,7 +246,7 @@
             this.properties(thisProto);
             return this;
         },
-        extend:function(obj){
+        seed:function(obj){
             var func;
             //classify obj
             if(!isFunction(obj) && this.hasOwnConstructor) {

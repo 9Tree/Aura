@@ -23,16 +23,22 @@ TestSuite.addTest("$$$ inheritance", function(){
     }
     //prototype f with p
     $$$(f).proto(p);
-    //b will extend a with p + property test
-    var b = $$$(a).extend(p).property("test", {
+    //b will be p extending a + property test
+    var b = $$$(a).seed(p).property("test", {
         value:"test"
     });
-    //c will f inheriting from b + property test2
-    var c = $$$(b).extend(f).properties({
+    //c will be f extending b + property test2
+    var c = $$$(b).seed(f).properties({
         test2:{
             configurable:false, 
             get:function(){return this.value;},
             set:function(v){this.value='set:'+v;}
+        }
+    });
+    //g will be p extending c + property test2
+    var g = $$$(c).seed({}).properties({
+        hello:{
+            value:"hello2"
         }
     });
 
@@ -45,13 +51,22 @@ TestSuite.addTest("$$$ inheritance", function(){
     this.assert("d.bye()", d.bye()=="bye");
 
     var e = c.new("test2");
-    this.assert("An instance of f", e instanceof f);
-    this.assert("d.check", e.check=="f");
-    this.assert("d.hello()", e.hello()=="hello");
+    this.assert("e an instance of f", e instanceof f);
+    this.assert("e.check", e.check=="f");
+    this.assert("e.hello()", e.hello()=="hello");
     this.assert("e.test", e.test=="test");
     e.test2 = "test2";
     this.assert("e.test2", e.test2=="set:test2");
     this.assert("e.bye()", e.bye()=="bye");
+    
+    var h = g.new("test2");
+    this.assert("h not an instance of f", !(h instanceof f));
+    this.assert("h.check", h.check=="f");
+    this.assert("h.hello", h.hello=="hello2");
+    this.assert("h.test", h.test=="test");
+    h.test2 = "test2";
+    this.assert("h.test2", h.test2=="set:test2");
+    this.assert("h.bye()", h.bye()=="bye");
 });
 
 
