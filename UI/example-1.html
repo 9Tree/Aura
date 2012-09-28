@@ -16,80 +16,93 @@
         <link rel="stylesheet" href="ui-base.css" type="text/css" media="screen" charset="utf-8" />
         <link rel="stylesheet" href="example-1.css" type="text/css" media="screen" charset="utf-8" />
     </head>
-    <body class="vertical-content">
-        
-        <header class="free-content fill-width"><input type="text" name="header-input" value="" id="header-input" /></header>
-        
-        <section id="content" class="fill-flex single-content">
+    <body class="single-wrapper">
+        <section class="selected vertical-wrapper">
             
-            <section id="home" class="selected single-content">
-                <div class="selected scrollable">
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
-                    home content<br /><br />
+            <header class="unwrap">
+                <div>
+                    <input type="text" name="header-input" value="" id="header-input" />
                 </div>
+            </header>
+        
+            <section id="content" class="flexible single-wrapper">
+            
+                <section id="home" class="selected unwrap">
+                    <div class="scrollable">
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                            home content<br /><br />
+                    </div>
+                </section>
+
             </section>
         
-            <section id="test" class="single-content">
-                
-                <div class="fill-flex scrollable">
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
-                    test content<br /><br />
+            <footer>
+                <div>
+                    <input type="text" name="footer-input" value="" id="footer-input" />
                 </div>
-                
-            </section>
+            </footer>
+        
         </section>
-        
-        <footer class="free-content fill-width">footer <input type="text" name="footer-input" value="" id="footer-input" /></footer>
         
     </body>
     
     <script src="../src/Aura.js" type="text/javascript" charset="utf-8"></script>
-    <script src="ui.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../src/plugins/ui.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../src/plugins/website.js" type="text/javascript" charset="utf-8"></script>
     <script type="text/javascript" charset="utf-8">
+    
+    //$$.website.automate();
     
     // $.ready(function(){
     //     setTimeout(function(){
