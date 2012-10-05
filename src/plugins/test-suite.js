@@ -13,15 +13,28 @@ TestCase = function(name, f, timeout){
             this.failed = true;
             TestSuite.exception(e);
         }
-        if(!this.timeout) this.finish(); //sync
-        else {  //async
-            var that = this;
-            this.timeoutHandler = setTimeout(function(){
-                that.failed = true;
-                TestSuite.exception("TestCase timed out ("+that.timeout+"ms)");
-                that.finish();
-            }, that.timeout);
-        }
+        
+        //sync
+        if(!this.timeout) this.finish();
+        //async
+        else this.setTimeout();
+    }
+    this.setTimeout=function(){
+        var that = this;
+        this.timeoutHandler = setTimeout(function(){
+            that.failed = true;
+            TestSuite.exception("TestCase timed out ("+that.timeout+"ms)");
+            that.finish();
+        }, that.timeout);
+    }
+    this.debug=function(){
+        console.log("Start: "+this.name);
+        this.f();
+        
+        //sync
+        if(!this.timeout) this.finish();
+        //async
+        else this.setTimeout();
     }
     this.finish=function(){
         if(this.timeoutHandler) clearTimeout(this.timeoutHandler);
@@ -49,12 +62,12 @@ TestSuite = {
         timeout = timeout || 2500;
         this.tests[name]=new TestCase(name, f, timeout);
     },
-    runAll:function(){
+    runAll:function(debug){
         console.log("Running all tests:");
         var that = this;
         for(el in this.tests) {
             setTimeout((function(f){
-                return function(){f.run();}
+                return function(){f[debug ? 'debug' : 'run']();}
             })(that.tests[el]),0); //run on "separate threads"
         }
     },

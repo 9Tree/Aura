@@ -91,6 +91,22 @@
     $.isNumeric = isNumeric = function(n){
 		return (n - 0) == n && n.length > 0;
     };
+    //compare 2 versions
+    $.versionCompare = function(v1,v2){
+        if(v1==v2) return "=";
+        
+        var v1parts = v1.split('.');
+        var v2parts = v2.split('.');
+        //compare the 2 versions
+        for (var i = 0; i < v1parts.length; ++i) {
+            if(v1parts[i] != v2parts[i]){
+                return v1parts[i] > v2parts[i] ? ">" : "<";
+            } else if(v2parts.length == i){
+                return ">";
+            }
+        }
+        return "<";
+    }
     //clone an object recursively - Note: currently does not avoid infinite loop
     $.clone = clone = function(obj) {
         if (!obj) return null;
@@ -160,19 +176,15 @@
     }
     
 
-    
     // class handler ($$$)
     function $class(c){
-        if(!c) this.c = {};
-        else if(typeof c == 'object') this.c = c;
+        if(!c) this.c = function(){};
         else if(!(typeof c == 'function')) throw "$$$ - argument is not a class";
         else {
-            this.hasOwnConstructor = true;
             this.c=c;
         }
     }
     $class.prototype = {
-        hasOwnConstructor:false,
         proto:function(p){
             if(p){  //add stuff to proto
                 var cur = this.c.prototype;
@@ -183,8 +195,8 @@
             }
         },
         setProto:function(p){   //replace proto
-            this.c.prototype=p;
-            if(this.hasOwnConstructor) this.c.prototype.constructor=this.c;
+            this.p=p;
+            if(this.hasOwnConstructor) this.p.constructor=this.c;
             return this;
         },
         
@@ -209,16 +221,21 @@
         },
         
         inherit:function(c){
-            c = $$$(c);
+            if(typeof c == 'object' && !c instanceof $$$){
+                //its an object
+                c = $$(c);
+            } else {
+                c = $$$(c);
+            }
             var thisProto = this.properties();
-            this.properties(c.properties());
+            this.setProperties(c.properties());
             this.properties(thisProto);
             return this;
         },
         seed:function(obj){
             var func;
             //classify obj
-            if(!isFunction(obj) && this.hasOwnConstructor) {
+            if(!typeof obj == 'function' && this.hasOwnConstructor) {
                 var construct = this.c;
                 func = $$$(function(){construct.apply(this,arguments);});
                 func.setProto(obj);
@@ -247,9 +264,9 @@
                     }
                 }
             } else {
-                if(!o.__aura) o.__aura={};
                 this[0]=o;
                 this.length=1;
+                if(!o.__aura) o.property('__aura', {value={}});
             }
         }
     }

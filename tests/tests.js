@@ -80,7 +80,7 @@ TestSuite.addAsyncTest("$.ready", function(){
 
 
 
-TestSuite.runAll();
+TestSuite.runAll(true);
 
 // var __color = {red:0,green:0,blue:0,alpha:1};
 // function createGetMethod(prop){

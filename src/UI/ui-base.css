@@ -149,6 +149,11 @@ html, body
     -o-overflow-scrolling:touch;
     overflow-scrolling:touch;
 }
+.unwrap>.scrollable::-webkit-scrollbar {
+    /*FIXME test this in ICS / JellyBean and check if it is worth it*/
+width: 15px;
+height: 2px;
+}
 .scrollable>*{
 	-webkit-backface-visibility: hidden;
     -moz-backface-visibility: hidden;
