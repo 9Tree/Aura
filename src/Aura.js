@@ -13,11 +13,11 @@
         $$$:{value:$$$}
     });
     
-    //get an id for cache, every Element
-    Object.defineProperty(Element.prototype, "_auraId", {
+    //get an id for cache, every Object (including elements)
+    Object.defineProperty(Object.prototype, "__auraId", {
         value:null,
         writable:true
-    })
+    });
     
     //main DOM selector - very Voodoo!
     function $(toSelect, scope){
@@ -35,7 +35,7 @@
 		toSelect=toSelect.trim();
         if (toSelect[0] === "#" && toSelect.indexOf(" ") === -1 && toSelect.indexOf(">") === -1) {  //id selector
             
-            return new $dom(scope.document.getElementById(toSelect.replace("#", "")));
+            return new $dom(scope.document.getElementById(toSelect.substr(1)));
               
         } else if (toSelect[0] === "<" && toSelect[toSelect.length - 1] === ">") {  //html
             
@@ -46,7 +46,7 @@
             
         } else if(toSelect.match(/^\.[a-zA-Z0-9_-]+$/)) { //single class
             
-            return new $dom(document.getElementsByClassName(c.replace(".", "")));
+            return new $dom(document.getElementsByClassName(c.substr(1)));
             
         } else {    //css query selector all
             
@@ -64,21 +64,18 @@
         //return itself or a new instance
         return o instanceof $object ? o : new $object(o);
     }
-    //Class wrapper
-    function $$$(c){
-        //return itself or a new instance
-        return c instanceof $class ? c : new $class(c);
-    }
     
-    //vars we will be using
-    var isNumeric, isElement, clone, reverse, slice = [].slice, canLoop, proxy, asap;
+
 	
 	//
     //helper functions (+ compatibility replacements)
 	//
     
+    //slice
+    var slice = [].slice;
+    
     //check for a loopable object
-    $.canLoop = canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
+    var canLoop = $.canLoop = function(obj) {return typeof obj == 'object' && obj && typeof obj.length == 'number' }; //Loopable object
     
     $.isFunction = function(f){
         return typeof f === "function";
@@ -88,7 +85,7 @@
         return typeof o === "object";
     };
     //check number
-    $.isNumeric = isNumeric = function(n){
+    $.isNumeric = function(n){
 		return (n - 0) == n && n.length > 0;
     };
     //compare 2 versions
@@ -107,17 +104,8 @@
         }
         return "<";
     }
-    //clone an object recursively - Note: currently does not avoid infinite loop
-    $.clone = clone = function(obj) {
-        if (!obj) return null;
-        var n = {};
-        for (var i in obj) {
-            n[i] = typeof (obj[i]) == 'object' ? clone(obj[i]) : obj[i];
-        }
-        return n;
-    };
     //reverse an array
-    $.reverse = reverse = function(arr){
+    $.reverse = function(arr){
         var n = [];
         for(var i = arr.length-1; i>=0; i--){
             n[i+1-arr.length] = arr[i];
@@ -125,13 +113,13 @@
         return n;
     };
     //proxy a method
-	$.proxy = proxy = function(f, c, args){
+	var proxy = $.proxy = function(f, c, args){
        	return args ? 
             function(){return f.apply(c, args);} : //use provided arguments
             function(){return f.apply(c, arguments)} ;	//use scope function call arguments
 	}
 	//check if object is a DOM element
-    $.isElement = isElement = function(o){
+    $.isElement = function(o){
         return !!(o && o.nodeType == 1);
     };
     //run stuff when DOM is ready
@@ -140,15 +128,21 @@
         if (scope.document.readyState === "complete" || scope.document.readyState === "loaded") asap(f);
         scope.document.addEventListener("DOMContentLoaded", f, false);
 	}
-    $.asap = asap = function(f){
+    var asap = $.asap = function(f){
         //TODO make this proper and set via postMessage
         setTimeout(function(){f();},0);
     }
-    
-    //internal functions and caches
-    var classCache;
-    function classRE(name) {
-        return classCache[name] ? classCache[name] : (classCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'));
+    function S4(){
+        return Math.floor(Math.random() * 0x10000).toString(16);
+    }
+    $.uuid = function(){
+        return (
+            S4() + S4() + "-" +
+            S4() + "-" +
+            S4() + "-" +
+            S4() + "-" +
+            S4() + S4() + S4()
+        );
     }
     
     
@@ -158,6 +152,9 @@
 	//
 	//the main classes
 	//
+    
+    //common vars
+    var objId=0;
     
     
     //common class methods
@@ -175,107 +172,54 @@
         
     }
     
-
-    // class handler ($$$)
-    function $class(c){
-        if(!c) this.c = function(){};
-        else if(!(typeof c == 'function')) throw "$$$ - argument is not a class";
-        else {
-            this.c=c;
-        }
-    }
-    $class.prototype = {
-        proto:function(p){
-            if(p){  //add stuff to proto
-                var cur = this.c.prototype;
-                for(var el in p) if(el!="constructor") cur[el]=p[el];   //add all except constructor
-                return this;
-            } else {
-                return this.c.prototype;
-            }
-        },
-        setProto:function(p){   //replace proto
-            this.p=p;
-            if(this.hasOwnConstructor) this.p.constructor=this.c;
-            return this;
-        },
-        
-        //ECMA 5 properties support
-        property:function(n, p){ 
-            var ret = $$(this.c.prototype).property(n, p);
-            return p ? this : ret;
-        },
-        properties:function(p){
-            var ret = $$(this.c.prototype).properties(p);
-            return p ? this : ret;
-        },
-        setProperties:function(p){   //replace properties
-          Object.defineProperties(this.c.prototype, p); 
-          return this; 
-        },
-        //ECMA5 create instance
-        new:function(){
-            var o = Object.create(this.c.prototype, this.properties());
-            if(this.hasOwnConstructor) this.c.prototype.constructor.apply(o, arguments);
-            return o;
-        },
-        
-        inherit:function(c){
-            if(typeof c == 'object' && !c instanceof $$$){
-                //its an object
-                c = $$(c);
-            } else {
-                c = $$$(c);
-            }
-            var thisProto = this.properties();
-            this.setProperties(c.properties());
-            this.properties(thisProto);
-            return this;
-        },
-        seed:function(obj){
-            var func;
-            //classify obj
-            if(!typeof obj == 'function' && this.hasOwnConstructor) {
-                var construct = this.c;
-                func = $$$(function(){construct.apply(this,arguments);});
-                func.setProto(obj);
-            } else {
-                func = $$$(obj);
-            }
-            //inherit
-            return func.inherit(this);
-        },
-        
-        //common methods
-        get:function(){return this.c;}
-    }
-    
     
     //object handler ($$)
-    function $object(o){
-        if(!(typeof o == 'object') || isElement(o)) throw "$$$ - argument is not a valid javascript object";
-        this.length = 0;
-        if(o) {
-            if(canLoop(o)) {
-                for(var i=0;i<o.length;i++) {   //order is important here
-                    if(o[i]){
-                        if(!o[i].__aura) o[i].__aura={};
-                        this[this.length++]=o[i];
+    var objectCache={};
+    var $$s = {};
+    function $object(o, id){
+        if(o && typeof o == 'object') {
+            this.length = 0;
+            if(!canLoop(o)) o = [o];
+            for(var i=0;i<o.length;i++) {   //order is important here
+                if(typeof o[i] == 'object'){
+                    if(!o[i].__auraId) {
+                        o[i].__auraId=++objId;
+                        objectCache[objId]={
+                            events:{}
+                        }
                     }
+                    this[this.length++]=o[i];
                 }
-            } else {
-                this[0]=o;
-                this.length=1;
-                if(!o.__aura) o.property('__aura', {value={}});
             }
+            if(id) $$s[id] = this;  //cache this
+            return;
+        } else if(typeof o == 'string') {
+            if($$s[o]) return $$s[o];
         }
+        throw "$$ - argument is not a valid javascript object or identifier";
     }
     $object.prototype = {
+        //ECMA5 create instance
+        clone:function(p){
+			var id = this[0].__auraId;
+			this[0].__auraId=null;
+			var o = new $object(Object.create(this[0], p));
+			this[0].__auraId=id;
+            return o;
+        },
+        //ECMA5 inherit properties
+        inherit:function(c){
+            this.properties($(c).properties());
+        },
+        //ECMA5 seed properties
+        seed:function(o){
+            
+        }
         bind:function(ev, f){	//bind events to object
             var objs, obj;
             ev = Array ? ev : [ev]; //set multiple events at once
             for(var i=this.length-1;i>=0;i--){
-                objs = this[i].__aura.events;
+                objs = objectCache[this[i].__auraId].events;
                 objs = objs || {};
     			for(var j=this.length-1;j>=0;j--){
                     obj = objs[ev[j]];
@@ -289,10 +233,10 @@
             var objs, obj;
             ev = (canLoo(ev) || !ev) ? ev : [ev]; //set multiple events at once
             for(var i=this.length-1;i>=0;i--){
-                objs = this[i].__aura.events;
+                objs = objectCache[this[i].__auraId].events;
                 //clear all events
                 if(!ev || !objs) {
-                    objs = {};
+                    objectCache[this[i].__auraId].events = {};
                     continue;
                 }
                 //clear matches
@@ -321,16 +265,23 @@
 			//TODO
 			return this;
 		},
-		stringify:function(){	//stringify object
+        // "kills" the $$ object
+        kill:function(){
+            for(var i=this.length-1;i>=0;i--) {
+                delete objectCache[this[i].__auraId];
+                delete this[i];
+            }
+        },
+		stringify:function(){	//stringify object FIXME
             if(!this[0]) return null;
 			//remove aura stuff to stringify
-			var tmp = this[0].__aura;
-			delete this[0].__aura;
+			var id = this[0].__auraId;
+			this[0].__auraId=null;
 			var str = JSON.stringify(this[0]);
-			this[0].__aura = tmp;
-			return tmp;
+			this[0].__auraId=id;
+			return str;
 		},
-		querystring:function(){	//convert to http GET/POST querystring
+		querystring:function(urlEncode){	//convert to http GET/POST querystring
 			//TODO
 		},
         property:function(n, p){  //ECMA 5 properties
@@ -356,6 +307,11 @@
                 }
                 return result;
             }
+        },
+        setProperties:function(p){   //replace properties
+          for(var i=this.length-1;i>=0;i--) 
+              Object.defineProperties(this[i], p); 
+          return this; 
         },
         //common methods
         get:getter,
@@ -464,27 +420,29 @@
                 
             } else return null;
         },
-        //TODO s
         addClass:function(c){
+            c = c.split(' ');
             for(var i=this.length-1;i>=0;i--) {
-                var cName = this[i].className;
-                if(!classRE(c).test(this[i].className)) {
-                    this[i].className = cName ? cName+' '+c.trim() : c.trim();
-                }
-                    
+                for(var j=c.length-1;j>=0;j--) this[i].classList.add(c[j]); 
             } 
-        },
-        hasClass:function(c){
-            return this.length>0 ? classRE(c).test(this[0].className) : false;
-        },
-        removeClass:function(c){
-            for(var i=this.length-1;i>=0;i--) this[i].className = this[i].className.replace(classRE(c), " ").trim();
             return this;
         },
-        toggleClass:function(cName, newClass){
+        hasClass:function(c){
+            return this.length>0 ? this[0].classList.contains(c); : false;
+        },
+        removeClass:function(c){
+            c = c.split(' ');
+            for(var i=this.length-1;i>=0;i--) 
+                for(var j=c.length-1;j>=0;j--) 
+                    this[i].classList.remove(c[j]);
+            return this;
+        },
+        replaceClass:function(cName, newClass){
+            cName = cName.split(' ');
+            newClass = newClass.split(' ');
             for (var i=this.length-1;i>=0;i--) {
-                this[i].className.replace(classRE(cname), " ");
-                this[i].className = (this[i].className + newClass).trim();
+                for(var j=cName.length-1;j>=0;j--) this[i].classList.remove(cName[j]);
+                for(var j=newClass.length-1;j>=0;j--) this[i].classList.add(newClass[j]);
             }
             return this;
         },
