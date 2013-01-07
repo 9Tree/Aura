@@ -1,79 +1,76 @@
 function assert(what, val){
     if(!val) throw(what);
+    else console.log("passed "+what);
 }
 
 
 
 //simplest tests as can be
 
-//$$$ inheritance tests
-//class a
+//SIMPLE OBJECTS METHODS
+//$$().absorb()
 var a = { check : "a" };
-
-//setup a's prototype
-$$(a).properties({
+$$(a).absorb({
+    deep:{
+        val:null
+    },
     hello:null, 
     bye:function(){
         return "bye";
     }
 });
-//p prototype object
-var p = {
-    hello:function(){
-        return "hello";
-    }
-};
-//class f
-var a = { check = "f" };
+assert("$$().absorb()", a.check=="a"&&a.hello==null&&a.bye()=="bye");
 
-//prototype f with p
-$$(f).properties(p);
-
-//b will be p extending a + property test
-var b = $$(a).seed(p).property("test", {
-    value:"test"
-});
-
-//c will be f extending b + property test2
-var c = $$(b).seed(f).properties({
-    test2:{
-        configurable:false, 
-        get:function(){return this.value;},
-        set:function(v){this.value='set:'+v;}
+//$$().deep_absorb()
+$$(a).deep_absorb({
+    deep:{
+        val:1
     }
 });
+assert("$$().deep_absorb()", a.deep.val == 1);
 
-//g will be p extending c + property test2
-var g = $$(c).clone({
-    hello:{
-        value:"hello2"
+//$$().collect()
+$$(a).collect({
+    yo:"yo", 
+    bye:"bye"
+});
+assert("$$().collect()", a.yo=="yo"&&a.bye()=="bye");
+
+//$$().deep_collect()
+$$(a).deep_collect({
+    deep:{
+            val:2,
+            check:true
     }
 });
+assert("$$().deep_collect()", a.deep.check && a.deep.val==1);
 
+//OBJECTS ES5 PROPERTIES
+//$$().property()
+$$(a).property("hello", {value:"hello"});
+assert("$$().property()", a.hello=="hello");
 
-var d = b.new("Start test!");
-assert("Not an instance of a", !(d instanceof a));
-assert("d.check", d.check=="a");
-assert("d.hello()", d.hello()=="hello");
-assert("d.test", d.test=="test");
-assert("d.bye()", d.bye()=="bye");
+//$$().properties()
+$$(a).properties({hi:{value:"hi"}, bye:{value:"bye"}});
+assert("$$().properties()", a.hi=="hi"&&a.bye=="bye");
 
-var e = c.new("test2");
-assert("e an instance of f", e instanceof f);
-assert("e.check", e.check=="f");
-assert("e.hello()", e.hello()=="hello");
-assert("e.test", e.test=="test");
+//$$().propertize()
+var b = {};
+$$(b).propertize({hi:{value:"bye", configurable:true}});
+$$(b).propertize({hi:{value:"hi"}, bye:{value:"bye"}});
+assert("$$().propertize()", b.hi=="hi"&&b.bye=="bye");
 
-e.test2 = "test2";
-assert("e.test2", e.test2=="set:test2");
-assert("e.bye()", e.bye()=="bye");
-    
-var h = g.new("test2");
-assert("h not an instance of f", !(h instanceof f));
-assert("h.check", h.check=="f");
-assert("h.hello", h.hello=="hello2");
-assert("h.test", h.test=="test");
+//OBJECTS ES5 INHERATANCE
+//$$().replica()
+var e = {ze:"ze", deep:{hi:"myHi"}};
+var f = $$(e).replica({test:"yeah!"});
+assert("$$().replica()", f.ze=="ze"&&f.deep.hi=="myHi"&&f.test=="yeah!");
 
-h.test2 = "test2";
-assert("h.test2", h.test2=="set:test2");
-assert("h.bye()", h.bye()=="bye");
+//$$().deep_replica()
+var g = $$(e).deep_replica({test:"yeah!"});
+e.deep.hi = "hi";
+assert("$$().deep_replica()", g.deep.hi=="myHi"&&f.deep.hi=="hi"&&g.test=="yeah!");
+
+//$$().spawn()
+var c = $$(b).spawn({ze2:{value:"ze2"}, hi2:"myHi2"});
+assert("$$().spawn()", c.hi=="hi"&&c.ze2=="ze2"&&Object.getPrototypeOf(c)==b);
